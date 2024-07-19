@@ -132,9 +132,9 @@ shinyServer(function(input, output, session){
     # Generate the heatmap using ggplot2
     heat_map <- ggplot(world_data) +
       geom_sf(aes(fill = total_metric), color = "black") +
-      scale_fill_gradient(low = "orchid1", high = "purple4", na.value = "white") +
+      scale_fill_gradient(low = "plum1", high = "#6F3092", na.value = "white") +
       theme_minimal() +
-      theme(plot.title = element_text(size = 18, colour = "purple4", face = "bold")) +  # Set title font size to 14pts
+      theme(plot.title = element_text(size = 18, colour = "#6F3092", face = "bold")) +  # Set title font size to 14pts
       labs(title = paste("Mapped", input$metric), fill = element_blank())
     
     heat_map

@@ -4,8 +4,10 @@ library(shinythemes)
 library(lubridate)
 
 # Define UI for the app
-shinyUI(fluidPage(theme = shinytheme("cerulean"), 
-
+shinyUI(fluidPage(
+  tags$head(
+    includeCSS("www/custom.css")  # Link to your custom CSS file
+  ),
                   # Application title
                   titlePanel("Map your repository"),
                   p("This app maps the downloads and views of a set of item from the Loughborough Research Repository."),
@@ -58,7 +60,7 @@ shinyUI(fluidPage(theme = shinytheme("cerulean"),
                     # Main panel for displaying outputs
                     mainPanel(
                       # Output: Plot with a spinner
-                      withSpinner(plotOutput("heatMapPlot"))
+                      withSpinner(plotOutput("heatMapPlot"), type = 3, color = "#6F3092", color.background = "white")
                     )
                   )
 ))

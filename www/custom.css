@@ -1,0 +1,11 @@
+/* custom.css */
+
+/* Style for hyperlinks */
+a {
+  color: #6F3092; /* Purple color */
+  text-decoration: underline; /* Underline the hyperlink */
+}
+
+h2 {
+  color: #6F3092
+}
