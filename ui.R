@@ -10,11 +10,11 @@ shinyUI(fluidPage(
   ),
                   # Application title
                   titlePanel("Map your repository"),
-                  p("This app maps the downloads and views of a set of item from the Loughborough Research Repository."),
-                  p("Upload your file, make sure it is a CSV with a single column of data, with a header. 
-                    Then select your parameters."),
-                  p("The sample data is from the", a("Open Research Week 2024", href = "https://doi.org/10.17028/rd.lboro.c.7105741"), "recordings."),
-                  p("Our servers are slow - please be patient :)"),
+                  p(HTML("This app maps the downloads and views of a set of item from the <a href='https://repository.lboro.ac.uk'>Loughborough Research Repository</a>.")),
+                  p("Upload your file, make sure it is a CSV with a single column of item IDs, with a header. 
+                    If you aren't sure of the file structure, download the current file and replace the item IDs with
+                    the set you are interested in. Next, select your parameters."),
+                  p(em("Our servers are slow - please be patient :)")),
                   
                   # Sidebar layout with a sidebar and main panel
                   sidebarLayout(
@@ -54,9 +54,19 @@ shinyUI(fluidPage(
                       p(),
                       
                       # Download button for the JPEG map
-                      downloadButton("downloadMap", "Download map as JPEG")
+                      downloadButton("downloadMap", "Download map as JPEG"),
+                      
+                      fluidRow(
+                        column(12,
+                               HTML("<p></p>
+                     <p></p>
+                     <p style='font-size: 10px;'>The sample data is from the <a href='https://doi.org/10.17028/rd.lboro.c.7105741'>Open Research Week 2024</a> recordings.</p>
+                     <p style='font-size: 10px;'>The code for this app can be found at <a href='https://github.com/lboro-rdm/mapmyrepo.git'>GitHub</a>.</p>
+                     <p style='font-size: 10px;'>To cite this item: Skelly, Lara (2024). Map my repository: a R/Shiny app. Loughborough University. Software. <a href='https://doi.org/10.17028/rd.lboro.26335771'>https://doi.org/10.17028/rd.lboro.26335771</a> </p>
+          ")
+                        )
+                      )
                     ),
-                    
                     # Main panel for displaying outputs
                     mainPanel(
                       # Output: Plot with a spinner

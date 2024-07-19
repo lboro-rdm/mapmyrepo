@@ -29,7 +29,19 @@ shinyServer(function(input, output, session){
   
   # Reactive expression to extract article IDs
   article_ids <- reactive({
-    article_ids_df()$ItemIDs
+    df <- article_ids_df()
+    
+    # Check if the dataframe has any columns
+    if (ncol(df) == 0) {
+      return(NULL)  # No columns available
+    }
+    
+    # Identify the first column as the article IDs
+    # You may need to adjust this if your article IDs could be in another column
+    id_column <- names(df)[1]  # Assumes article IDs are in the first column
+    
+    # Extract the article IDs from the identified column
+    df[[id_column]]
   })
   
   # Define the base URL for Figshare API

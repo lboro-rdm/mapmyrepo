@@ -1,0 +1,12 @@
+name: mapmyrepo
+title: mapmyrepo
+username: research-data-lboro
+account: research-data-lboro
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 12339355
+bundleId: 8883993
+url: https://research-data-lboro.shinyapps.io/mapmyrepo/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
