@@ -12,16 +12,25 @@ library(readr)
 library(purrr)
 library(base64enc)
 
-
 # Define server logic
 shinyServer(function(input, output, session){
   
-  # Read the article IDs from the CSV file
-  file_path <- "ItemIDs.csv"  # Adjust the path if necessary
-  article_ids_df <- read_csv(file_path, locale = locale(encoding = "UTF-8"))
+    # Reactive expression to read the uploaded file or the default file
+  article_ids_df <- reactive({
+    if (is.null(input$file1)) {
+      # If no file is uploaded, read the default file
+      file_path <- "ItemIDs.csv"  # Adjust the path if necessary
+      read_csv(file_path, locale = locale(encoding = "UTF-8"))
+    } else {
+      # If a file is uploaded, read the uploaded file
+      read_csv(input$file1$datapath, locale = locale(encoding = "UTF-8"))
+    }
+  })
   
-  # Extract the article IDs from the dataframe
-  article_ids <- article_ids_df$ItemIDs
+  # Reactive expression to extract article IDs
+  article_ids <- reactive({
+    article_ids_df()$ItemIDs
+  })
   
   # Define the base URL for Figshare API
   base_url <- "https://stats.figshare.com/lboro/breakdown/total"
@@ -33,14 +42,14 @@ shinyServer(function(input, output, session){
   # Combine the username and password and encode them
   credentials <- paste(username, password, sep = ":")
   encoded_credentials <- base64encode(charToRaw(credentials))
+  counter <- 0
   
   # Function to get geolocation data for a single article ID
   get_geolocation <- function(article_id, metric, start_date, end_date) {
     url <- paste0(base_url, "/", metric, "/article/", article_id, "?start_date=", start_date, "&end_date=", end_date)
     response <- GET(url, add_headers(Authorization = paste("Basic", encoded_credentials)))
-    
     if (status_code(response) == 200) {
-      content <- content(response, as = "text", , encoding = "UTF-8")
+      content <- content(response, as = "text", encoding = "UTF-8")
       json_data <- fromJSON(content, flatten = TRUE)
       return(json_data)
     } else {
@@ -58,8 +67,10 @@ shinyServer(function(input, output, session){
     aggregated_data <- list()
     
     # Loop through each article ID and get geolocation data
-    for (article_id in article_ids) {
+    for (article_id in article_ids()) {
       geolocation_data <- get_geolocation(article_id, metric, start_date, end_date)
+      counter <- counter + 1
+      print(counter)
       
       if (!is.null(geolocation_data)) {
         breakdown_total <- geolocation_data$breakdown$total

@@ -4,8 +4,8 @@ library(shinythemes)
 library(lubridate)
 
 # Define UI for the app
-shinyUI(fluidPage(theme = shinytheme("united"),
-                  
+shinyUI(fluidPage(theme = shinytheme("cerulean"), 
+
                   # Application title
                   titlePanel("Map your repository"),
                   p("This app maps the downloads and views of a set of item from the Loughborough Research Repository."),
@@ -19,6 +19,14 @@ shinyUI(fluidPage(theme = shinytheme("united"),
                     
                     # Sidebar panel for inputs
                     sidebarPanel(
+                      # File upload input
+                      fileInput("file1", 
+                                "Upload CSV File",
+                                accept = c(
+                                  "text/csv",
+                                  "text/comma-separated-values,text/plain",
+                                  ".csv")),
+                      
                       # Dropdown menu for selecting metric (views or downloads)
                       selectInput("metric", 
                                   label = "Select Metric:",
@@ -28,7 +36,7 @@ shinyUI(fluidPage(theme = shinytheme("united"),
                       # Date input for start date
                       dateInput("start_date", 
                                 label = "Start Date:",
-                                value <- "2024-02-26",  # Default to earliest date
+                                value = "2024-02-26",  # Default to earliest date
                                 max = Sys.Date()),  # Latest selectable date
                       
                       # Date input for end date
