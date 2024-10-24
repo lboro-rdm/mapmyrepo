@@ -6,3 +6,9 @@ Skelly, Lara (2024). Map my repository: a R/Shiny app. Loughborough University. 
 
 # to-do notes
 [WAITING FOR FS] Resolve API weirdness.
+
+# remember:
+This github version does not have global.R. Set it up with the following code:
+
+Sys.setenv(username = "myusername")
+Sys.setenv(password = "mypassword")
