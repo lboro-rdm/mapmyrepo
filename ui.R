@@ -14,6 +14,7 @@ shinyUI(fluidPage(
                   p("Upload your file, make sure it is a CSV with a single column of item IDs, with a header. 
                     If you aren't sure of the file structure, download the current file and replace the item IDs with
                     the set you are interested in. Next, select your parameters."),
+  p("Note that the system only allows for one year of data to be mapped at any one time."),
                   p(em("Our servers are slow - please be patient :)")),
                   
                   # Sidebar layout with a sidebar and main panel
@@ -38,15 +39,14 @@ shinyUI(fluidPage(
                       # Date input for start date
                       dateInput("start_date", 
                                 label = "Start Date:",
-                                value = "2024-02-26",  # Default to earliest date
-                                max = Sys.Date()),  # Latest selectable date
+                                value = Sys.Date() - 365,  # Default to 30 days ago
+                                max = Sys.Date()),        # Latest selectable date
                       
-                      # Date input for end date
                       dateInput("end_date", 
                                 label = "End Date:",
-                                value = Sys.Date(),  # Default to today
-                                min = "2024-04-24",  # Earliest selectable date
-                                max = Sys.Date()),  # Latest selectable date
+                                value = Sys.Date(),       # Default to today
+                                min = Sys.Date() - 365,   # Earliest selectable date
+                                max = Sys.Date()),         # Latest selectable date
                       
                       # Download button for the CSV file
                       downloadButton("downloadData", "Download data as CSV"),
