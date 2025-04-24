@@ -3,16 +3,55 @@ library(shinycssloaders)
 library(shinythemes)
 library(lubridate)
 
-# Define UI for the app
-ui <- navbarPage(
-  "Map My Repository",
+ui <- tags$html(
+  lang = "en",
+  fluidPage(
+    style = "padding: 0px; margin: 0px;",
+    tags$head(
+      tags$title("Map My Repository"),
+      tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")
+    ),
+  
+  # Black banner
+  tags$div(
+    class = "black-banner",
+    tags$div(
+      class = "banner-content",
+      tags$a(
+        href = "https://www.lboro.ac.uk",
+        target = "_blank",
+        tags$img(src = "logo.png", class = "uni-logo", alt = "University Logo")
+      ),
+      tags$a(
+        href = "https://www.lboro.ac.uk/services/library/",
+        target = "_blank",
+        class = "return-link",
+        "University Library"
+      )
+    )
+  ),
+  
+  # Blue banner
+  tags$div(
+    class = "blue-banner",
+    tags$div(
+      class = "banner-content",
+      tags$span("Open Research Services"),
+      tags$a(
+        href = "https://repository.lboro.ac.uk/",
+        class = "return-link",
+        "< Return to Research Repository"
+      )
+    )
+  ),
+  
+  # Your existing UI code
+  navbarPage(
+    title = NULL,
   
   # First Tab ----
   tabPanel("Map My Repository",
            fluidPage(
-             tags$head(
-               includeCSS("www/custom.css")  # Link to your custom CSS file
-             ),
              # Application title
              p(HTML("This app maps the downloads and views of a set of items from the <a href='https://repository.lboro.ac.uk'>Loughborough Research Repository</a>.")),
              p("Upload your file, make sure it is a CSV with a single column of item IDs, with a header. 
@@ -73,7 +112,7 @@ ui <- navbarPage(
                # Main panel for displaying outputs
                mainPanel(
                  # Output: Plot with a spinner
-                 withSpinner(plotOutput("heatMapPlot"), type = 3, color = "#6F3092", color.background = "white")
+                 withSpinner(plotOutput("heatMapPlot"), type = 3, color = "#8D9C27", color.background = "white")
                )
              )
            )
@@ -89,10 +128,19 @@ ui <- navbarPage(
                downloadButton("downloadSearch", "Download item IDs as a CSV")
              ),
              mainPanel(
-               withSpinner(DT::dataTableOutput("searchResults"), type = 3, color = "#6F3092", color.background = "white")
+               withSpinner(DT::dataTableOutput("searchResults"), type = 3, color = "#8D9C27", color.background = "white")
+             )
+           )
+  ),
+  tags$div(class = "footer", 
+           fluidRow(
+             column(12, 
+                    tags$a(href = 'https://doi.org/10.17028/rd.lboro.28525481', 
+                           "Accessibility Statement")
              )
            )
   )
   
 )
-
+)
+)
