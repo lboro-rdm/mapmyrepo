@@ -1,17 +1,14 @@
 library(shiny)
 library(httr)
 library(jsonlite)
-library(tibble)
-library(dplyr)
-library(ggplot2)
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(sf)
 library(openssl)
-library(readr)
-library(purrr)
 library(base64enc)
 library(DT)
+library(tidyverse)
+library(plotly)
 
 # Define server logic
 shinyServer(function(input, output, session){
@@ -148,26 +145,23 @@ shinyServer(function(input, output, session){
   })
   
   # Render the plot
-  output$heatMapPlot <- renderPlot({
+  output$heatMapPlot <- renderPlotly({
     country_data <- aggregated_data_reactive()
     
-    # Load world map data using the rnaturalearth package
     world <- ne_countries(scale = "medium", returnclass = "sf")
-    
-    # Join the data with the world map
     world_data <- world %>%
       left_join(country_data, by = c("name" = "country"))
     
-    # Generate the heatmap using ggplot2
     heat_map <- ggplot(world_data) +
-      geom_sf(aes(fill = total_metric), color = "black") +
+      geom_sf(aes(fill = total_metric, text = paste0(name, ": ", total_metric)), color = "black", size = 0.01) +
       scale_fill_gradient(low = "#8D9C27", high = "#008466", na.value = "white") +
       theme_minimal() +
-      theme(plot.title = element_text(size = 18, colour = "#008466", face = "bold")) +  # Set title font size to 14pts
+      theme(plot.title = element_text(size = 18, colour = "#008466", face = "bold")) +
       labs(title = paste("Mapped", input$metric), fill = element_blank())
     
-    heat_map
+    ggplotly(heat_map, tooltip = "text")  # This enables tooltips
   })
+  
   
   # Download handler for the CSV file
   output$downloadData <- downloadHandler(

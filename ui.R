@@ -2,6 +2,7 @@ library(shiny)
 library(shinycssloaders)
 library(shinythemes)
 library(lubridate)
+library(plotly)
 
 ui <- tags$html(
   lang = "en",
@@ -112,7 +113,7 @@ ui <- tags$html(
                # Main panel for displaying outputs
                mainPanel(
                  # Output: Plot with a spinner
-                 withSpinner(plotOutput("heatMapPlot"), type = 3, color = "#8D9C27", color.background = "white")
+                 withSpinner(plotlyOutput("heatMapPlot"), type = 3, color = "#8D9C27", color.background = "white")
                )
              )
            )
