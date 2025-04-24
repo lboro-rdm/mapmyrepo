@@ -121,13 +121,15 @@ ui <- tags$html(
   
   # Second Tab ----
   tabPanel("Get CSV Files",
-           sidebarLayout(
-             sidebarPanel(
-               textInput("firstname", "Enter firstname:", placeholder = "First name"),
-               textInput("surname", "Enter surname:", placeholder = "Surname"),
-               p(),
-               downloadButton("downloadSearch", "Download item IDs as a CSV")
-             ),
+           sidebarPanel(
+             selectInput("searchType", "Search by:",
+                         choices = c("Researcher", "Collection", "Project", "Group"),
+                         selected = "Researcher"),
+             textInput("searchQuery", "Enter search term:"),
+             actionButton("searchButton", "Search"),
+             p(),
+             downloadButton("downloadSearch", "Download item IDs as a CSV")
+           ),
              mainPanel(
                withSpinner(DT::dataTableOutput("searchResults"), type = 3, color = "#8D9C27", color.background = "white")
              )
@@ -142,6 +144,5 @@ ui <- tags$html(
            )
   )
   
-)
 )
 )
