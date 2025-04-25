@@ -62,8 +62,8 @@ shinyServer(function(input, output, session){
   base_url <- "https://stats.figshare.com/lboro/breakdown/total"
   
   # Define your username and password (replace with actual values)
-  username <- Sys.getenv("username")
-  password <- Sys.getenv("password")
+  username <- Sys.getenv("FSusername")
+  password <- Sys.getenv("FSpassword")
   
   # Combine the username and password and encode them
   credentials <- paste(username, password, sep = ":")
@@ -222,72 +222,84 @@ shinyServer(function(input, output, session){
   
   # Get csv server code ----
 
-  # Reactive function to fetch data from Figshare API
-  fetchFigshareData <- reactive({
-    # Check if user has entered a first name and surname
-    req(input$firstname, input$surname)
-    
-    # API URL based on user selection
-    base_url <- "https://api.figshare.com/v2/account/institution/articles"
-    
-    # Construct the API URL with proper encoding
-    # Use URL parameters to search for articles
-    params <- list(search_for = paste("'", input$firstname, input$surname, "'"), 
-                   limit = 1000) 
-    url <- paste0(base_url, "?", URLencode(paste0(names(params), "=", unlist(params), collapse = "&")))
+  # Create a reactiveVal to store fetched data
+  search_results <- reactiveVal(NULL)
   
+  # Trigger data fetching only when searchButton is clicked
+  observeEvent(input$searchButton, {
+    req(input$searchQuery, input$searchType)
     
-    # Make API request
-    response <- GET(url, add_headers(Authorization = paste("token", Sys.getenv("api_token"))))
+    # Get user inputs
+    query <- input$searchQuery
+    search_type <- tolower(input$searchType)
     
-    # Initialize combined data frame for citations
-    combined_df <- data.frame(Citation = character(), URL = character(), stringsAsFactors = FALSE)
+    # Construct API endpoint
+    endpoint <- switch(search_type,
+                       "researcher" = "https://api.figshare.com/v2/account/institution/articles",
+                       "collection" = paste0("https://api.figshare.com/v2/collections/", query, "/articles"),
+                       "project" = paste0("https://api.figshare.com/v2/projects/", query, "/articles"),
+                       "group" = paste0("https://api.figshare.com/v2/account/institution/articles?group=", URLencode(query)),
+                       NULL)
     
-    # Check if the request was successful
-    if (status_code(response) == 200) {
-      # Parse the response content
-      articles_data <- fromJSON(content(response, "text", encoding = "UTF-8"), flatten = TRUE)
-      
-      # Extract article IDs or other relevant data
-      article_ids <- articles_data$id
-      
-      # Set the Figshare API request URL for citations
-      endpoint2 <- "https://api.figshare.com/v2/articles/"
-      
-      # Use article IDs to get article citations
-      for (article_id in article_ids) {
-        full_url_citation <- paste0(endpoint2, article_id)
-        
-        # Get the article citation data
-        citation_response <- GET(full_url_citation, add_headers(Authorization = paste("token", Sys.getenv("api_token"))))
-        
-        # Check if the citation request was successful
-        if (status_code(citation_response) == 200) {
-          citation_data <- fromJSON(content(citation_response, "text", encoding = "UTF-8"), flatten = TRUE)
-          
-          # Put the citation into a dataframe
-          citation_df <- data.frame(Citation = citation_data$citation, 
-                                    URL = citation_data$figshare_url,
-                                    ID = article_id,
-                                    stringsAsFactors = FALSE)
-          
-          # Combine the citation data frames
-          combined_df <- rbind(combined_df, citation_df)
-        } else {
-          warning(paste("Failed to fetch citation for article ID:", article_id, "Status code:", status_code(citation_response)))
-        }
-      }
-
-      return(combined_df)  # Return the combined results with citations
-    } else {
-      warning(paste("Failed to fetch data from Figshare API:", status_code(response)))
-      return(NULL)  # Return NULL if the request fails
+    if (is.null(endpoint)) {
+      warning("Invalid search type selected.")
+      search_results(NULL)
+      return()
     }
+    
+    headers <- add_headers(Authorization = paste("token", Sys.getenv("APIkey")))
+    
+    # Append params if researcher
+    if (search_type == "researcher") {
+      quoted_query <- paste0('"', query, '"')  # wrap in double quotes
+      endpoint <- paste0(endpoint, "?search_for=", URLencode(quoted_query), "&limit=1000")
+    }
+    
+    response <- GET(endpoint, headers)
+    
+    if (status_code(response) != 200) {
+      warning(paste("API request failed with status", status_code(response)))
+      search_results(NULL)
+      return()
+    }
+    
+    articles_data <- fromJSON(content(response, "text", encoding = "UTF-8"), flatten = TRUE)
+    
+    # Unwrap items if needed
+    if (!is.null(articles_data$items)) {
+      articles_data <- articles_data$items
+    }
+    
+    article_ids <- articles_data$id
+    
+    combined_df <- data.frame(Citation = character(), URL = character(), ID = character(), stringsAsFactors = FALSE)
+    
+    for (article_id in article_ids) {
+      full_url <- paste0("https://api.figshare.com/v2/articles/", article_id)
+      citation_response <- GET(full_url, headers)
+      
+      if (status_code(citation_response) == 200) {
+        citation_data <- fromJSON(content(citation_response, "text", encoding = "UTF-8"), flatten = TRUE)
+        citation_df <- data.frame(
+          Citation = citation_data$citation,
+          URL = citation_data$figshare_url,
+          ID = as.character(article_id),
+          stringsAsFactors = FALSE
+        )
+        combined_df <- bind_rows(combined_df, citation_df)
+      } else {
+        warning(paste("Failed to get citation for article ID:", article_id))
+      }
+    }
+    
+    # Save results
+    search_results(combined_df)
   })
+  
   
   # Display search results in the main panel
   output$searchResults <- DT::renderDataTable({
-    fetched_df <- fetchFigshareData()  # Fetch data using the reactive function
+    fetched_df <- search_results()  # Fetch data using the reactive function
     if (!is.null(fetched_df) && nrow(fetched_df) > 0) {  # Check if fetched_df is not NULL and has rows
       # Create a data frame with clickable citations
       df <- data.frame(Citation = paste0('<a href="', fetched_df$URL, '" target="_blank">', fetched_df$Citation, '</a>'), stringsAsFactors = FALSE)
@@ -319,7 +331,7 @@ shinyServer(function(input, output, session){
     },
     content = function(file) {
       # Get only the article IDs to write to the CSV
-      details <- fetchFigshareData()
+      details <- search_results()
       
       # Create a data frame with a single column for article IDs
       ids_df <- data.frame(Article_IDs = details$ID, stringsAsFactors = FALSE)
