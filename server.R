@@ -13,6 +13,8 @@ library(plotly)
 # Define server logic
 shinyServer(function(input, output, session){
   
+  search_triggered <- reactiveVal(FALSE)
+  
   # Map server code ----
   
   # Observe changes to start_date and update end_date limits
@@ -227,7 +229,11 @@ shinyServer(function(input, output, session){
   
   # Trigger data fetching only when searchButton is clicked
   observeEvent(input$searchButton, {
+    
     req(input$searchQuery, input$searchType)
+    
+    search_triggered(TRUE)
+    search_results(NULL)
     
     # Get user inputs
     query <- input$searchQuery
@@ -299,6 +305,7 @@ shinyServer(function(input, output, session){
   
   # Display search results in the main panel
   output$searchResults <- DT::renderDataTable({
+    req(search_triggered())
     fetched_df <- search_results()  # Fetch data using the reactive function
     if (!is.null(fetched_df) && nrow(fetched_df) > 0) {  # Check if fetched_df is not NULL and has rows
       # Create a data frame with clickable citations
