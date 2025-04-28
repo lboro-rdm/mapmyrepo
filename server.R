@@ -125,7 +125,9 @@ shinyServer(function(input, output, session){
     
     world <- ne_countries(scale = "medium", returnclass = "sf")
     world_data <- world %>%
-      left_join(country_data, by = c("name" = "country"))
+      mutate(name = as.character(name)) %>%  # Convert the 'name' column in the world map to character
+      left_join(country_data %>% mutate(country = as.character(country)), by = c("name" = "country"))
+    
     
     # Define the heatmap plot without the 'text' aesthetic inside geom_sf
     heat_map <- ggplot(world_data) +
