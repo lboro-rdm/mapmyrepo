@@ -17,20 +17,6 @@ shinyServer(function(input, output, session){
   
   # Map server code ----
   
-  # Observe changes to start_date and update end_date limits
-  observeEvent(input$start_date, {
-    updateDateInput(session, "end_date",
-                    min = input$start_date,
-                    max = input$start_date + 365)
-  })
-  
-  # Observe changes to end_date and update start_date limits
-  observeEvent(input$end_date, {
-    updateDateInput(session, "start_date",
-                    min = input$end_date - 365,
-                    max = input$end_date)
-  })
-  
     # Reactive expression to read the uploaded file or the default file
   article_ids_df <- reactive({
     if (is.null(input$file1)) {
@@ -70,7 +56,6 @@ shinyServer(function(input, output, session){
   # Combine the username and password and encode them
   credentials <- paste(username, password, sep = ":")
   encoded_credentials <- base64encode(charToRaw(credentials))
-  counter <- 0
   
   # Function to get geolocation data for a single article ID
   get_geolocation <- function(article_id, metric, start_date, end_date) {
@@ -86,67 +71,55 @@ shinyServer(function(input, output, session){
     }
   }
   
-  # Reactive expression to get aggregated data based on selected metric and dates
   aggregated_data_reactive <- reactive({
-    metric <- input$metric  # Get selected metric
-    start_date <- as.character(input$start_date)  # Get start date
-    end_date <- as.character(input$end_date)  # Get end date
+    metric <- input$metric
+    start_date <- as.Date(input$start_date)
+    end_date <- as.Date(input$end_date)
     
-    aggregated_data <- list()
+    # Create start and end dates for each year chunk
+    start_dates <- seq.Date(start_date, end_date, by = "year")
+    end_dates <- pmin(start_dates + 365, end_date)
     
-    # Loop through each article ID and get geolocation data
+    # Initialize empty dataframe
+    all_data <- tibble(country = character(), total = numeric())
+    
+    # Loop through each article ID
     for (article_id in article_ids()) {
-      geolocation_data <- get_geolocation(article_id, metric, start_date, end_date)
-      counter <- counter + 1
-      print(counter)
-      
-      if (!is.null(geolocation_data)) {
-        breakdown_total <- geolocation_data$breakdown$total
+      # For each year chunk
+      for (i in seq_along(start_dates)) {
+        chunk_start <- start_dates[i]
+        chunk_end <- end_dates[i]
         
-        # Loop through each country in the breakdown_total
-        for (country in names(breakdown_total)) {
-          if (is.list(breakdown_total[[country]])) {
-            # Check if the country already exists in aggregated_data
-            if (country %in% names(aggregated_data)) {
-              # Add counts to existing entries
-              for (location in names(breakdown_total[[country]])) {
-                if (location != "total") {
-                  aggregated_data[[country]][[location]] <- aggregated_data[[country]][[location]] + breakdown_total[[country]][[location]]
-                }
-              }
-              # Update total count
-              aggregated_data[[country]]$total <- aggregated_data[[country]]$total + breakdown_total[[country]]$total
+        geolocation_data <- get_geolocation(article_id, metric, chunk_start, chunk_end)
+        if (!is.null(geolocation_data)) {
+          breakdown_total <- geolocation_data$breakdown$total
+          
+          # Flatten the list into a tibble
+          country_chunk <- map_dfr(names(breakdown_total), function(country) {
+            if (is.list(breakdown_total[[country]]) && !is.null(breakdown_total[[country]]$total)) {
+              tibble(country = country, total = breakdown_total[[country]]$total)
             } else {
-              # Initialize country entry if it doesn't exist
-              aggregated_data[[country]] <- list()
-              for (location in names(breakdown_total[[country]])) {
-                if (location != "total") {
-                  aggregated_data[[country]][[location]] <- breakdown_total[[country]][[location]]
-                }
-              }
-              # Initialize total count
-              aggregated_data[[country]]$total <- breakdown_total[[country]]$total
+              NULL
             }
-          }
+          })
+          
+          # Combine into full dataset
+          all_data <- bind_rows(all_data, country_chunk)
         }
       }
     }
     
-    # Convert aggregated_data to a dataframe
-    country_data <- map_df(names(aggregated_data), ~ {
-      country <- .x
-      downloads <- aggregated_data[[.x]]$total
-      tibble(country = country, total_metric = downloads)
-    })
-    
-    # Rename "United States" to "United States of America"
-    country_data <- country_data %>%
+    # Summarize total metrics by country
+    country_data <- all_data %>%
+      group_by(country) %>%
+      summarize(total_metric = sum(total), .groups = "drop") %>%
       mutate(country = ifelse(country == "United States", "United States of America", country))
     
     country_data
   })
   
-  # Render the plot
+  
+  
   output$heatMapPlot <- renderPlotly({
     country_data <- aggregated_data_reactive()
     
@@ -154,15 +127,18 @@ shinyServer(function(input, output, session){
     world_data <- world %>%
       left_join(country_data, by = c("name" = "country"))
     
+    # Define the heatmap plot without the 'text' aesthetic inside geom_sf
     heat_map <- ggplot(world_data) +
       geom_sf(aes(fill = total_metric, text = paste0(name, ": ", total_metric)), color = "black", size = 0.01) +
-      scale_fill_gradient(low = "#8D9C27", high = "#008466", na.value = "white") +
+      scale_fill_gradient(low = input$colour2, high = input$colour1, na.value = "white") +
       theme_minimal() +
-      theme(plot.title = element_text(size = 18, colour = "#008466", face = "bold")) +
+      theme(plot.title = element_text(size = 18, colour = input$colour1, face = "bold")) +
       labs(title = paste("Mapped", input$metric), fill = element_blank())
     
-    ggplotly(heat_map, tooltip = "text")  # This enables tooltips
+    plotly_map <- ggplotly(heat_map, tooltip = "text")
+    
   })
+  
   
   
   # Download handler for the CSV file

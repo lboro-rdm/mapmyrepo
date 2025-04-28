@@ -3,6 +3,7 @@ library(shinycssloaders)
 library(shinythemes)
 library(lubridate)
 library(plotly)
+library(colourpicker)
 
 ui <- tags$html(
   lang = "en",
@@ -88,8 +89,10 @@ ui <- tags$html(
                  dateInput("end_date", 
                            label = "End Date:",
                            value = Sys.Date(),       # Default to today
-                           min = Sys.Date() - 365,   # Earliest selectable date
                            max = Sys.Date()),         # Latest selectable date
+                 
+                 colourInput("colour1", "Choose a colour for the high end of the scale:", value = "#cc6b00"),
+                 colourInput("colour2", "Choose a colour for the low end of the scale:", value = "#ffb74d"),
                  
                  # Download button for the CSV file
                  downloadButton("downloadData", "Download metric data as CSV"),
@@ -121,6 +124,8 @@ ui <- tags$html(
   
   # Second Tab ----
   tabPanel("Get CSV Files",
+           p("You can create your own custom CSV files, or you can generate one by searching on a researcher's name, a group, collection or project number."),
+           p("To find the group, collection or project number"),
            sidebarPanel(
              selectInput("searchType", "Search by:",
                          choices = c("Researcher", "Collection", "Project", "Group"),
