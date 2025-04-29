@@ -5,9 +5,8 @@ account: research-data-lboro
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 12339355
-bundleId: 10199570
+bundleId: 10200622
 url: https://research-data-lboro.shinyapps.io/mapmyrepo/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: screenshot.png

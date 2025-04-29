@@ -13,6 +13,8 @@ library(plotly)
 # Define server logic
 shinyServer(function(input, output, session){
   
+  options(shiny.sanitize.errors = FALSE)
+  
   search_triggered <- reactiveVal(FALSE)
   
   # Map server code ----
@@ -52,6 +54,8 @@ shinyServer(function(input, output, session){
   # Define your username and password (replace with actual values)
   username <- Sys.getenv("FSusername")
   password <- Sys.getenv("FSpassword")
+  print(paste("Username found:", nzchar(Sys.getenv("FSusername"))))
+  print(paste("Password found:", nzchar(Sys.getenv("FSpassword"))))
   
   # Combine the username and password and encode them
   credentials <- paste(username, password, sep = ":")
