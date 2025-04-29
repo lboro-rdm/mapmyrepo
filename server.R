@@ -60,6 +60,7 @@ shinyServer(function(input, output, session){
   # Function to get geolocation data for a single article ID
   get_geolocation <- function(article_id, metric, start_date, end_date) {
     url <- paste0(base_url, "/", metric, "/article/", article_id, "?start_date=", start_date, "&end_date=", end_date)
+    print(url)
     response <- GET(url, add_headers(Authorization = paste("Basic", encoded_credentials)))
     if (status_code(response) == 200) {
       content <- content(response, as = "text", encoding = "UTF-8")
@@ -75,48 +76,30 @@ shinyServer(function(input, output, session){
     metric <- input$metric
     start_date <- as.Date(input$start_date)
     end_date <- as.Date(input$end_date)
-    
-    print(paste("Selected metric:", metric))
-    print(paste("Start date:", start_date))
-    print(paste("End date:", end_date))
-    
+
     # Create start and end dates for each year chunk
     start_dates <- seq.Date(start_date, end_date, by = "year")
     end_dates <- pmin(start_dates + 365, end_date)
-    
-    print(paste("Date chunks:", length(start_dates), "chunks"))
     
     # Initialize empty dataframe
     all_data <- tibble(country = character(), total = numeric())
     
     ids <- article_ids()
-    print(paste("Number of article IDs:", length(ids)))
-    print(paste("Article IDs:", paste(ids, collapse = ", ")))
-    
+
     # Loop through each article ID
     for (article_id in article_ids()) {
       # For each year chunk
-      print(paste("Processing article ID:", article_id))
       for (i in seq_along(start_dates)) {
         chunk_start <- start_dates[i]
         chunk_end <- end_dates[i]
-        
-        print(paste("Fetching data from", chunk_start, "to", chunk_end))
         
         geolocation_data <- get_geolocation(article_id, metric, chunk_start, chunk_end)
         if (!is.null(geolocation_data)) {
           breakdown_total <- geolocation_data$breakdown$total
           
-          if (length(breakdown_total) > 0) {
-            print(paste("Number of countries in this chunk:", length(breakdown_total)))
-          } else {
-            print("Empty breakdown_total")
-          }
-          
           # Flatten the list into a tibble
           country_chunk <- map_dfr(names(breakdown_total), function(country) {
             if (is.list(breakdown_total[[country]]) && !is.null(breakdown_total[[country]]$total)) {
-              print(paste("Adding country:", country))
               tibble(country = country, total = breakdown_total[[country]]$total)
             } else {
               NULL
@@ -141,13 +124,9 @@ shinyServer(function(input, output, session){
   
   output$heatMapPlot <- renderPlotly({
     country_data <- aggregated_data_reactive()
-    print(head(country_data, 5))
-    print(paste0("Class of country at initial: ", class(country_data$country)))
     country_data$country <- as.character(country_data$country)
-    print(paste0("Class of country after as char: ", class(country_data$country)))
-    
+
     if (is.null(country_data) || nrow(country_data) == 0) {
-      print("NULL")
       return(NULL)
     }
     
@@ -156,8 +135,7 @@ shinyServer(function(input, output, session){
     world_data <- world %>%
       mutate(name = as.character(name)) %>%
       left_join(country_data, by = c("name" = "country"))
-    print(paste0("class of world data name: ", class(world_data$name)))
-    
+
     
     # If `total_metric` is missing or all NA, abort with a message
     if (!"total_metric" %in% names(world_data)) {
