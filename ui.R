@@ -140,6 +140,7 @@ ui <- tags$html(
 # Third Tab ---------------------------------------------------------------
 
   tabPanel("About this app",
+           p("The data for this app is pulled from Figshare. While Figshare does exclude known bots, the rise of LLMs has made this more challenging. It is assumed that the vast majority of views and downloads, particularly from USA, are bots."),
            p("This app was created in R, with the following packages:"),
              tags$ul(
                tags$li(
