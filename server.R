@@ -9,6 +9,7 @@ library(base64enc)
 library(DT)
 library(tidyverse)
 library(plotly)
+library(rsconnect)
 
 # Define server logic
 shinyServer(function(input, output, session){

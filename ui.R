@@ -55,9 +55,8 @@ ui <- tags$html(
            fluidPage(
              # Application title
              p(HTML("This app maps the downloads and views of a set of items from the <a href='https://repository.lboro.ac.uk'>Loughborough Research Repository</a>.")),
-             p("Upload your file, make sure it is a CSV with a single column of item IDs, with a header. 
-               (If you aren't sure of the file structure, download a file from the next tab.) Next, select your parameters."),
-             p("Note that the system only allows for one year of data to be mapped at any one time."),
+             p("Make sure your file is a CSV with a single column of item IDs, with a header, then upload it."), 
+               p("If you aren't sure of the file structure, download a file from the next tab."),
              p(em("Our servers are slow - please be patient :)")),
              
              # Sidebar layout with a sidebar and main panel
