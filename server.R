@@ -152,7 +152,7 @@ shinyServer(function(input, output, session){
       scale_fill_gradient(low = input$colour2, high = input$colour1, na.value = "white") +
       theme_minimal() +
       theme(plot.title = element_text(size = 18, colour = input$colour1, face = "bold")) +
-      labs(title = paste("Mapped", input$metric), fill = element_blank())
+      labs(title = input$mapTitle, fill = element_blank())
     
     plotly_map <- ggplotly(heat_map, tooltip = "text")
 
@@ -165,10 +165,10 @@ shinyServer(function(input, output, session){
   # Download handler for the CSV file
   output$downloadData <- downloadHandler(
     filename = function() {
-      metric <- input$metric
+      file_title <- input$mapTitle
       start_date <- input$start_date
       end_date <- input$end_date
-      paste(metric, "_data_", start_date, "_to_", end_date, ".csv", sep = "")
+      paste(file_title, "-data-", start_date, "_to_", end_date, ".csv", sep = "")
     },
     content = function(file) {
       country_data <- aggregated_data_reactive()
@@ -187,10 +187,10 @@ shinyServer(function(input, output, session){
   # Download handler for the JPEG map
   output$downloadMap <- downloadHandler(
     filename = function() {
-      metric <- input$metric
+      file_title <- input$mapTitle
       start_date <- input$start_date
       end_date <- input$end_date
-      paste(metric, "_map_", start_date, "_to_", end_date, ".jpg", sep = "")
+      paste(file_title, "-map-", start_date, "_to_", end_date, ".csv", sep = "")
     },
     content = function(file) {
       country_data <- aggregated_data_reactive()

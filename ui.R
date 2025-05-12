@@ -54,9 +54,12 @@ ui <- tags$html(
   tabPanel("Map My Repository",
            fluidPage(
              # Application title
+             p(HTML("Have you ever wondered <b>where in the world</b> your research is being viewed and downloaded?")),
              p(HTML("This app maps the downloads and views of a set of items from the <a href='https://repository.lboro.ac.uk'>Loughborough Research Repository</a>.")),
+             p("Disclaimer: The data for this app is pulled from Figshare. While Figshare does exclude known bots, the rise of LLMs has made this more challenging. It is assumed that the vast majority of views and downloads, particularly from USA, are bots."),
+             p(HTML("<b>How to use this app:</b>")),
              p("Make sure your file is a CSV with a single column of item IDs, with a header, then upload it."), 
-               p("If you aren't sure of the file structure, download a file from the next tab."),
+             p("If you aren't sure of the file structure, download a file from the next tab."),
              p(em("Our servers are slow - please be patient :)")),
              
              # Sidebar layout with a sidebar and main panel
@@ -88,6 +91,8 @@ ui <- tags$html(
                            label = "End Date:",
                            value = Sys.Date() - 1,       # Default to today
                            max = Sys.Date() - 1),         # Latest selectable date
+                 
+                 textInput("mapTitle", "Enter a title for your map:", value = "Sample: mapped downloads"),
                  
                  colourInput("colour1", "Choose a colour for the high end of the scale:", value = "#cc6b00"),
                  colourInput("colour2", "Choose a colour for the low end of the scale:", value = "#ffb74d"),
@@ -139,7 +144,6 @@ ui <- tags$html(
 # Third Tab ---------------------------------------------------------------
 
   tabPanel("About this app",
-           p("The data for this app is pulled from Figshare. While Figshare does exclude known bots, the rise of LLMs has made this more challenging. It is assumed that the vast majority of views and downloads, particularly from USA, are bots."),
            p("This app was created in R, with the following packages:"),
              tags$ul(
                tags$li(
