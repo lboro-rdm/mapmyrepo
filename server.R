@@ -1,5 +1,5 @@
 library(shiny)
-library(httr)
+library(httr2)
 library(jsonlite)
 library(rnaturalearth)
 library(rnaturalearthdata)
@@ -11,7 +11,6 @@ library(tidyverse)
 library(plotly)
 library(rsconnect)
 
-# Define server logic
 shinyServer(function(input, output, session){
   
   options(shiny.sanitize.errors = FALSE)
@@ -24,7 +23,7 @@ shinyServer(function(input, output, session){
   article_ids_df <- reactive({
     if (is.null(input$file1)) {
       # If no file is uploaded, read the default file
-      file_path <- "www/ItemIDs.csv"  # Adjust the path if necessary
+      file_path <- "www/ItemIDs.csv"
       read_csv(file_path, locale = locale(encoding = "UTF-8"))
     } else {
       # If a file is uploaded, read the uploaded file
@@ -41,11 +40,7 @@ shinyServer(function(input, output, session){
       return(NULL)  # No columns available
     }
     
-    # Identify the first column as the article IDs
-    # You may need to adjust this if your article IDs could be in another column
-    id_column <- names(df)[1]  # Assumes article IDs are in the first column
-    
-    # Extract the article IDs from the identified column
+    id_column <- names(df)[1] 
     df[[id_column]]
   })
   
@@ -57,25 +52,35 @@ shinyServer(function(input, output, session){
   password <- Sys.getenv("FSpassword")
   print(paste("Username found:", nzchar(Sys.getenv("FSusername"))))
   print(paste("Password found:", nzchar(Sys.getenv("FSpassword"))))
+  cat("Username length:", nchar(username), "\n")
+  cat("Password length:", nchar(password), "\n")
   
-  # Combine the username and password and encode them
-  credentials <- paste(username, password, sep = ":")
-  encoded_credentials <- base64encode(charToRaw(credentials))
+  # req <- request(base_url) %>%
+    # req_auth_basic()req_auth_basic(username, password)
   
   # Function to get geolocation data for a single article ID
   get_geolocation <- function(article_id, metric, start_date, end_date) {
-    url <- paste0(base_url, "/", metric, "/article/", article_id, "?start_date=", start_date, "&end_date=", end_date)
+    # Construct the full URL
+    url <- paste0(base_url, "/", metric, "/article/", article_id,
+                  "?start_date=", start_date, "&end_date=", end_date)
     print(url)
-    response <- GET(url, add_headers(Authorization = paste("Basic", encoded_credentials)))
-    if (status_code(response) == 200) {
-      content <- content(response, as = "text", encoding = "UTF-8")
-      json_data <- fromJSON(content, flatten = TRUE)
+    
+    # Build and perform the request
+    resp <- request(url) %>%
+      req_auth_basic(username, password) %>%
+      req_headers(`User-Agent` = "httr2 - shinyApp/1.0") %>%
+      req_perform()
+    
+    # Handle response
+    if (resp_status(resp) == 200) {
+      json_data <- resp_body_json(resp, simplifyVector = TRUE)
       return(json_data)
     } else {
       warning(paste("Failed to get data for article ID:", article_id))
       return(NULL)
     }
   }
+  
   
   aggregated_data_reactive <- reactive({
     metric <- input$metric
@@ -92,7 +97,7 @@ shinyServer(function(input, output, session){
     ids <- article_ids()
 
     # Loop through each article ID
-    for (article_id in article_ids()) {
+    for (article_id in ids) {
       # For each year chunk
       for (i in seq_along(start_dates)) {
         chunk_start <- start_dates[i]
@@ -190,32 +195,39 @@ shinyServer(function(input, output, session){
       file_title <- input$mapTitle
       start_date <- input$start_date
       end_date <- input$end_date
-      paste(file_title, "-map-", start_date, "_to_", end_date, ".csv", sep = "")
+      paste(file_title, "-map-", start_date, "_to_", end_date, ".jpeg", sep = "")
     },
     content = function(file) {
       country_data <- aggregated_data_reactive()
       
-      # Load world map data using the rnaturalearth package
+      # Load world map data
       world <- ne_countries(scale = "medium", returnclass = "sf")
       
-      # Join the data with the world map
+      # Join with country data
       world_data <- world %>%
         left_join(country_data, by = c("name" = "country"))
       
-      # Generate the heatmap using ggplot2
+      # Build the heat map with user input for title and colour scale
       heat_map <- ggplot(world_data) +
-        geom_sf(aes(fill = total_metric), color = "black") +
-        scale_fill_gradient(low = "#8D9C27", high = "#008466", na.value = "white") +
+        geom_sf(
+          aes(fill = total_metric),
+          color = "black"
+        ) +
+        scale_fill_gradient(
+          low = input$colour2,
+          high = input$colour1,
+          na.value = "white"
+        ) +
         theme_minimal() +
         theme(
-          plot.title = element_text(size = 8, colour = "#008466", face = "bold"),
-          panel.background = element_rect(fill = "white", color = NA), # Explicitly set panel background
-          plot.background = element_rect(fill = "white", color = NA)  # Explicitly set plot background
-        ) +  # Set title font size to 18pts
-        labs(title = paste("Mapped", input$metric), fill = element_blank())
+          plot.title = element_text(size = 18, colour = input$colour1, face = "bold"),
+          panel.background = element_rect(fill = "white", color = NA),
+          plot.background = element_rect(fill = "white", color = NA)
+        ) +
+        labs(title = input$mapTitle, fill = element_blank())
       
-      # Save the plot as a JPEG file
-      ggsave(file, plot = heat_map, device = "jpeg")
+      # Save the map
+      ggsave(file, plot = heat_map, device = "jpeg", width = 10, height = 6, units = "in", dpi = 300)
     }
   )
   
@@ -237,12 +249,14 @@ shinyServer(function(input, output, session){
     search_type <- tolower(input$searchType)
     
     # Construct API endpoint
-    endpoint <- switch(search_type,
-                       "researcher" = "https://api.figshare.com/v2/account/institution/articles",
-                       "collection" = paste0("https://api.figshare.com/v2/collections/", query, "/articles"),
-                       "project" = paste0("https://api.figshare.com/v2/projects/", query, "/articles"),
-                       "group" = paste0("https://api.figshare.com/v2/account/institution/articles?group=", URLencode(query)),
-                       NULL)
+    endpoint <- switch(
+      search_type,
+      "researcher" = "https://api.figshare.com/v2/account/institution/articles",
+      "collection" = paste0("https://api.figshare.com/v2/collections/", query, "/articles?limit=1000"),
+      "project" = paste0("https://api.figshare.com/v2/projects/", query, "/articles?limit=1000"),
+      "group" = paste0("https://api.figshare.com/v2/account/institution/articles?group_id=", URLencode(query), "&limit=1000"),
+      NULL
+    )
     
     if (is.null(endpoint)) {
       warning("Invalid search type selected.")
@@ -250,54 +264,108 @@ shinyServer(function(input, output, session){
       return()
     }
     
-    headers <- add_headers(Authorization = paste("token", Sys.getenv("APIkey")))
+    # Make the API request using httr2
+    req <- request(endpoint) %>%
+      req_headers(
+        Authorization = paste("token", Sys.getenv("APIkey")),
+        `User-Agent` = "httr2 - shinyApp/1.0"
+      )
     
-    # Append params if researcher
-    if (search_type == "researcher") {
-      quoted_query <- paste0('"', query, '"')  # wrap in double quotes
-      endpoint <- paste0(endpoint, "?search_for=", URLencode(quoted_query), "&limit=1000")
-    }
-    
-    response <- GET(endpoint, headers)
-    
-    if (status_code(response) != 200) {
-      warning(paste("API request failed with status", status_code(response)))
-      search_results(NULL)
-      return()
-    }
-    
-    articles_data <- fromJSON(content(response, "text", encoding = "UTF-8"), flatten = TRUE)
-    
-    # Unwrap items if needed
-    if (!is.null(articles_data$items)) {
-      articles_data <- articles_data$items
-    }
-    
-    article_ids <- articles_data$id
-    
-    combined_df <- data.frame(Citation = character(), URL = character(), ID = character(), stringsAsFactors = FALSE)
-    
-    for (article_id in article_ids) {
-      full_url <- paste0("https://api.figshare.com/v2/articles/", article_id)
-      citation_response <- GET(full_url, headers)
-      
-      if (status_code(citation_response) == 200) {
-        citation_data <- fromJSON(content(citation_response, "text", encoding = "UTF-8"), flatten = TRUE)
-        citation_df <- data.frame(
-          Citation = citation_data$citation,
-          URL = citation_data$figshare_url,
-          ID = as.character(article_id),
-          stringsAsFactors = FALSE
-        )
-        combined_df <- bind_rows(combined_df, citation_df)
-      } else {
-        warning(paste("Failed to get citation for article ID:", article_id))
+    resp <- tryCatch(
+      req_perform(req),
+      error = function(e) {
+        warning("Search request failed: ", e$message)
+        return(NULL)
       }
-    }
+    )
     
-    # Save results
-    search_results(combined_df)
-  })
+    if (!is.null(resp) && resp_status(resp) == 200) {
+      data <- resp_body_json(resp, simplifyVector = TRUE)
+      search_results(data)
+    } else {
+      warning("No data returned from search.")
+      search_results(NULL)
+    }
+  # })
+
+
+   # Append params if researcher
+   if (search_type == "researcher") {
+     quoted_query <- paste0('"', query, '"')  # wrap in double quotes
+     endpoint <- paste0(endpoint, "?search_for=", URLencode(quoted_query), "&limit=1000")
+   }
+
+
+  # Build and perform the request using httr2
+  req <- request(endpoint) %>%
+    req_headers(Authorization = paste("token", Sys.getenv("APIkey")))
+
+  resp <- tryCatch(
+    req_perform(req),
+    error = function(e) {
+      warning(paste("API request failed:", e$message))
+      return(NULL)
+    }
+  )
+
+  if (is.null(resp) || resp_status(resp) != 200) {
+    warning(paste("API request failed with status", if (!is.null(resp)) resp_status(resp) else "NULL"))
+    search_results(NULL)
+    return()
+  }
+
+  # Parse JSON response
+  articles_data <- resp_body_json(resp, simplifyVector = TRUE)
+
+  # Unwrap items if present
+  if (!is.null(articles_data$items)) {
+    articles_data <- articles_data$items
+  }
+
+  # Extract article IDs
+  article_ids <- articles_data$id
+
+  # Prepare empty result dataframe
+  combined_df <- data.frame(
+    Citation = character(),
+    URL = character(),
+    ID = character(),
+    stringsAsFactors = FALSE
+  )
+
+
+  for (article_id in article_ids) {
+    full_url <- paste0("https://api.figshare.com/v2/articles/", article_id)
+
+    req <- request(full_url) %>%
+      req_headers(Authorization = paste("token", Sys.getenv("APIkey")))
+
+    resp <- tryCatch(
+      req_perform(req),
+      error = function(e) {
+        warning(paste("Request failed for article ID", article_id, ":", e$message))
+        return(NULL)
+      }
+    )
+
+    if (!is.null(resp) && resp_status(resp) == 200) {
+      citation_data <- resp_body_json(resp, simplifyVector = TRUE)
+      citation_df <- data.frame(
+        Citation = citation_data$citation,
+        URL = citation_data$figshare_url,
+        ID = as.character(article_id),
+        stringsAsFactors = FALSE
+      )
+      combined_df <- bind_rows(combined_df, citation_df)
+    } else {
+      warning(paste("Failed to get citation for article ID:", article_id))
+    }
+  }
+
+  # Save results
+  search_results(combined_df)
+  
+})
   
   
   # Display search results in the main panel
