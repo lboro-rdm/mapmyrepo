@@ -248,29 +248,55 @@ shinyServer(function(input, output, session){
     query <- input$searchQuery
     search_type <- tolower(input$searchType)
     
-    # Construct API endpoint
-    endpoint <- switch(
-      search_type,
-      "researcher" = "https://api.figshare.com/v2/account/institution/articles",
-      "collection" = paste0("https://api.figshare.com/v2/collections/", query, "/articles?limit=1000"),
-      "project" = paste0("https://api.figshare.com/v2/projects/", query, "/articles?limit=1000"),
-      "group" = paste0("https://api.figshare.com/v2/account/institution/articles?group_id=", URLencode(query), "&limit=1000"),
-      NULL
-    )
+    # Base authorization header
+    auth_header <- paste("token", Sys.getenv("APIkey"))
     
-    if (is.null(endpoint)) {
+    # Initialize request
+    req <- NULL
+    
+    # Handle each type
+    if (search_type == "researcher") {
+      endpoint <- "https://api.figshare.com/v2/account/institution/articles"
+      quoted_query <- paste0('"', query, '"')
+      endpoint <- paste0(endpoint, "?search_for=", URLencode(quoted_query), "&limit=1000")
+      
+      req <- request(endpoint) |>
+        req_headers(
+          Authorization = auth_header,
+          `User-Agent` = "httr2 - shinyApp/1.0"
+        )
+      
+    } else if (search_type == "collection") {
+      endpoint <- paste0("https://api.figshare.com/v2/collections/", query, "/articles?limit=1000")
+      
+      req <- request(endpoint) |>
+        req_headers(Authorization = auth_header)
+      
+    } else if (search_type == "project") {
+      endpoint <- paste0("https://api.figshare.com/v2/projects/", query, "/articles?limit=1000")
+      
+      req <- request(endpoint) |>
+        req_headers(Authorization = auth_header)
+      
+    } else if (search_type == "group") {
+      endpoint <- "https://api.figshare.com/v2/articles/search"
+      
+      req <- request(endpoint) |>
+        req_method("POST") |>
+        req_body_json(list(
+          institution = 2,
+          group = as.numeric(query),
+          limit = 1000
+        )
+        )
+      
+    } else {
       warning("Invalid search type selected.")
       search_results(NULL)
       return()
     }
     
-    # Make the API request using httr2
-    req <- request(endpoint) %>%
-      req_headers(
-        Authorization = paste("token", Sys.getenv("APIkey")),
-        `User-Agent` = "httr2 - shinyApp/1.0"
-      )
-    
+    # Perform the request
     resp <- tryCatch(
       req_perform(req),
       error = function(e) {
@@ -283,37 +309,10 @@ shinyServer(function(input, output, session){
       data <- resp_body_json(resp, simplifyVector = TRUE)
       search_results(data)
     } else {
-      warning("No data returned from search.")
+      warning("No data returned from search or request failed.")
       search_results(NULL)
     }
-  # })
-
-
-   # Append params if researcher
-   if (search_type == "researcher") {
-     quoted_query <- paste0('"', query, '"')  # wrap in double quotes
-     endpoint <- paste0(endpoint, "?search_for=", URLencode(quoted_query), "&limit=1000")
-   }
-
-
-  # Build and perform the request using httr2
-  req <- request(endpoint) %>%
-    req_headers(Authorization = paste("token", Sys.getenv("APIkey")))
-
-  resp <- tryCatch(
-    req_perform(req),
-    error = function(e) {
-      warning(paste("API request failed:", e$message))
-      return(NULL)
-    }
-  )
-
-  if (is.null(resp) || resp_status(resp) != 200) {
-    warning(paste("API request failed with status", if (!is.null(resp)) resp_status(resp) else "NULL"))
-    search_results(NULL)
-    return()
-  }
-
+    
   # Parse JSON response
   articles_data <- resp_body_json(resp, simplifyVector = TRUE)
 
