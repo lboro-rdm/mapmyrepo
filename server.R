@@ -231,10 +231,14 @@ shinyServer(function(input, output, session){
     }
   )
   
+
+# -------------------------------------------------------------------------
+
   # Get csv server code ----
 
   # Create a reactiveVal to store fetched data
   search_results <- reactiveVal(NULL)
+  search_ids <- reactiveVal(integer(0))
   
   # Trigger data fetching only when searchButton is clicked
   observeEvent(input$searchButton, {
@@ -243,9 +247,11 @@ shinyServer(function(input, output, session){
     
     search_triggered(TRUE)
     search_results(NULL)
+    search_ids <- integer(0)
     
     # Get user inputs
     query <- input$searchQuery
+    quoted_query <- paste0('"', query, '"')
     search_type <- tolower(input$searchType)
     
     # Base authorization header
@@ -256,15 +262,16 @@ shinyServer(function(input, output, session){
     
     # Handle each type
     if (search_type == "researcher") {
-      endpoint <- "https://api.figshare.com/v2/account/institution/articles"
-      quoted_query <- paste0('"', query, '"')
-      endpoint <- paste0(endpoint, "?search_for=", URLencode(quoted_query), "&limit=1000")
       
-      req <- request(endpoint) |>
-        req_headers(
-          Authorization = auth_header,
-          `User-Agent` = "httr2 - shinyApp/1.0"
-        )
+      
+      
+      req <- request("https://api.figshare.com/v2/articles/search") |>
+        req_method("POST") |>
+        req_headers(`Content-Type` = "application/json") |>
+        req_body_json(list(
+          search_for = quoted_query,
+          page_size = 1000
+        ))
       
     } else if (search_type == "collection") {
       endpoint <- paste0("https://api.figshare.com/v2/collections/", query, "/articles?limit=1000")
@@ -313,17 +320,22 @@ shinyServer(function(input, output, session){
       search_results(NULL)
     }
     
-  # Parse JSON response
-  articles_data <- resp_body_json(resp, simplifyVector = TRUE)
-
-  # Unwrap items if present
-  if (!is.null(articles_data$items)) {
-    articles_data <- articles_data$items
-  }
-
-  # Extract article IDs
-  article_ids <- articles_data$id
-
+    if (!is.null(resp) && resp_status(resp) == 200) {
+      
+      articles_data <- resp_body_json(resp, simplifyVector = TRUE)
+      
+      if (!is.null(articles_data$items)) {
+        articles_data <- articles_data$items
+      }
+      
+      search_ids <- articles_data$id
+      
+    } else {
+      warning("No data returned from search or request failed.")
+      search_results(NULL)
+      return()
+    }
+    
   # Prepare empty result dataframe
   combined_df <- data.frame(
     Citation = character(),
@@ -332,9 +344,46 @@ shinyServer(function(input, output, session){
     stringsAsFactors = FALSE
   )
 
-
-  for (article_id in article_ids) {
+  # Returns TRUE if the target author is on the article
+  is_true_author <- function(article_id, target_name = NULL, target_author_id = NULL) {
+    
     full_url <- paste0("https://api.figshare.com/v2/articles/", article_id)
+    
+    resp <- tryCatch(
+      request(full_url) |>
+        req_headers(Authorization = paste("token", Sys.getenv("APIkey"))) |>
+        req_perform(),
+      error = function(e) return(NULL)
+    )
+    
+    if (is.null(resp) || resp_status(resp) != 200) return(FALSE)
+    
+    art <- resp_body_json(resp, simplifyVector = TRUE)
+    authors <- art$authors
+    
+    # Check by author ID if provided
+    if (!is.null(target_author_id)) {
+      return(any(authors$id == target_author_id))
+    }
+    
+    # Check by name (case-insensitive)
+    if (!is.null(target_name)) {
+      return(any(tolower(authors$full_name) == tolower(target_name)))
+    }
+    
+    FALSE
+  }
+  
+
+  for (search_id in search_ids) {
+    
+    if (tolower(search_type) == "researcher") {
+      if (!is_true_author(search_id, target_name = input$searchQuery)) {
+        next  # Skip this article if author check fails
+      }
+    }
+    
+    full_url <- paste0("https://api.figshare.com/v2/articles/", search_id)
 
     req <- request(full_url) %>%
       req_headers(Authorization = paste("token", Sys.getenv("APIkey")))
@@ -342,7 +391,7 @@ shinyServer(function(input, output, session){
     resp <- tryCatch(
       req_perform(req),
       error = function(e) {
-        warning(paste("Request failed for article ID", article_id, ":", e$message))
+        warning(paste("Request failed for article ID", search_id, ":", e$message))
         return(NULL)
       }
     )
@@ -352,12 +401,12 @@ shinyServer(function(input, output, session){
       citation_df <- data.frame(
         Citation = citation_data$citation,
         URL = citation_data$figshare_url,
-        ID = as.character(article_id),
+        ID = as.character(search_id),
         stringsAsFactors = FALSE
       )
       combined_df <- bind_rows(combined_df, citation_df)
     } else {
-      warning(paste("Failed to get citation for article ID:", article_id))
+      warning(paste("Failed to get citation for article ID:", search_id))
     }
   }
 

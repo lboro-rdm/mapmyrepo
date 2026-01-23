@@ -125,6 +125,7 @@ ui <- tags$html(
   # Second Tab ----
   tabPanel("Get CSV Files",
            p("You can create your own custom CSV files, or you can generate one by searching on a researcher's name, a group, collection or project number."),
+           p("Note that the search function isn't great. Please check your results."),
            p(HTML("<a href='https://doi.org/10.17028/rd.lboro.28882631' target='_blank'>This presentation</a> shows you how to find the group, collection or project number.")),
            
            sidebarPanel(
