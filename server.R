@@ -270,6 +270,7 @@ shinyServer(function(input, output, session){
         req_headers(`Content-Type` = "application/json") |>
         req_body_json(list(
           search_for = quoted_query,
+          institution = 2,
           page_size = 1000
         ))
       
